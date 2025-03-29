@@ -1,16 +1,21 @@
 from pydantic import BaseModel, ConfigDict
+from fastapi_users.schemas import BaseUser, BaseUserCreate, BaseUserUpdate
 from typing import List
 
 
-class UserBase(BaseModel):
+
+class UserRead(BaseUser):
+    username: str
+
+
+class UserCreate(BaseUserCreate):
     username: str
     is_vendor: bool
 
 
-class User(UserBase):
-    id: int
-
-    model_config = ConfigDict(from_attributes=True)
+class UserUpdate(BaseUserUpdate):
+    username: str
+    is_vendor: bool
 
 
 class CategoryBase(BaseModel):
@@ -46,7 +51,7 @@ class ItemBase(BaseModel):
 
 class Item(ItemBase):
     id: int
-    vendor: User
+    vendor: UserRead
     category: Category
     images: List[ItemImage]
 

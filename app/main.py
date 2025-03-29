@@ -1,15 +1,49 @@
 from fastapi import FastAPI
-from app.database import engine, Base, SessionLocal
+from app.schemas import UserCreate, UserRead, UserUpdate
+from app.users import auth_backend, fastapi_users
+from app.database import async_session_maker, create_db_and_tables
 from app.routers import items
+from sqlalchemy import select, func
 from app import models
 
-# Create all tables
-Base.metadata.create_all(bind=engine)
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="My Macher App")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Not needed if you setup a migration system like Alembic
+    await create_db_and_tables()
+    await populate_db()
+    yield
+
+app = FastAPI(title="My Macher App", lifespan=lifespan)
 
 # Include routers
 app.include_router(items.router)
+app.include_router(
+    fastapi_users.get_auth_router(auth_backend), prefix="/auth", tags=["auth"]
+)
+app.include_router(
+    fastapi_users.get_register_router(UserRead, UserCreate),
+    prefix="/auth",
+    tags=["auth"],
+)
+app.include_router(
+    fastapi_users.get_reset_password_router(),
+    prefix="/auth",
+    tags=["auth"],
+)
+app.include_router(
+    fastapi_users.get_verify_router(UserRead),
+    prefix="/auth",
+    tags=["auth"],
+)
+app.include_router(
+    fastapi_users.get_users_router(
+        UserRead, UserUpdate, requires_verification=True),
+    prefix="/users",
+    tags=["users"],
+)
 
 
 @app.get("/")
@@ -17,10 +51,14 @@ def read_root():
     return {"message": "Welcome to the Macher app!"}
 
 
-def populate_db():
-    db = SessionLocal()
-    try:
-        if db.query(models.Item).count() == 0:
+async def populate_db():
+    async with async_session_maker() as db:
+        # Check if any items exist
+        stmt = select(func.count(models.Item.id))
+        result = await db.execute(stmt)
+        total_items = result.scalar() or 0
+
+        if total_items == 0:
             sample_data = [
                 {
                     "id": 25,
@@ -133,7 +171,7 @@ def populate_db():
                 {
                     "id": 31,
                     "created_at": 1729684358927,
-                    "name": "Power Washer",
+                    "name": "Power Washerthisisaverylongfasdfasd",
                     "location": {"latitude": "48.1554321", "longitude": "11.5656789"},
                     "vendor": "Private",
                     "vendor_name": "Jack Wash",
@@ -149,29 +187,40 @@ def populate_db():
                     "description": "An efficient power washer for cleaning patios, driveways, and more."
                 }
             ]
+
             for data in sample_data:
-                vendor = db.query(models.User).filter(
-                    models.User.username == data["vendor_name"]
-                ).first()
+                # Check or create vendor
+                stmt = select(models.User).filter(
+                    models.User.username == data["vendor_name"])
+                result = await db.execute(stmt)
+                vendor = result.scalar_one_or_none()
                 if not vendor:
                     vendor = models.User(
-                        username=data["vendor_name"], is_vendor=True)
+                        username=data["vendor_name"],
+                        is_vendor=True,
+                        email=generate_email(data["vendor_name"]),
+                        hashed_password="$argon2id$v=19$m=65536,t=3,p=4$9ufNT3/+y6CRd5QHK7s7iQ$VC5Rx2MUW16QtKPtyMx/Vgzue9GaQmZjq86rlQAwMqs",
+                        is_verified=True
+                    )
                     db.add(vendor)
-                    db.commit()
-                    db.refresh(vendor)
+                    await db.commit()
+                    await db.refresh(vendor)
 
-                category = db.query(models.Category).filter(
-                    models.Category.name == data["category"]
-                ).first()
+                # Check or create category
+                stmt = select(models.Category).filter(
+                    models.Category.name == data["category"])
+                result = await db.execute(stmt)
+                category = result.scalar_one_or_none()
                 if not category:
                     category = models.Category(name=data["category"])
                     db.add(category)
-                    db.commit()
-                    db.refresh(category)
+                    await db.commit()
+                    await db.refresh(category)
 
                 latitude = data.get("location", {}).get("latitude")
                 longitude = data.get("location", {}).get("longitude")
 
+                # Create the item
                 item = models.Item(
                     id=data["id"],
                     created_at=data["created_at"],
@@ -185,16 +234,16 @@ def populate_db():
                     category_id=category.id
                 )
                 db.add(item)
-                db.commit()
-                db.refresh(item)
+                await db.commit()
+                await db.refresh(item)
 
+                # Add associated images
                 for image_url in data["image"]:
                     item_image = models.ItemImage(
                         item_id=item.id, url=image_url)
                     db.add(item_image)
-                db.commit()
-    finally:
-        db.close()
+                await db.commit()
 
 
-populate_db()
+def generate_email(username: str) -> str:
+    return username.lower().replace(" ", ".") + "@example.com"

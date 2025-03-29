@@ -1,16 +1,23 @@
-from sqlalchemy import Column, Integer, String, Float, BigInteger, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, Float, BigInteger, ForeignKey, Boolean, UUID
 from sqlalchemy.orm import relationship
-from app.database import Base
+from app.database import Base, get_async_session
+from fastapi_users.db import SQLAlchemyUserDatabase
+from fastapi import Depends
+from fastapi_users.db import SQLAlchemyBaseUserTableUUID
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
-class User(Base):
+class User(SQLAlchemyBaseUserTableUUID, Base):
     __tablename__ = "users"
-    id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True)
+    username = Column(String(20), unique=True, index=True)
     is_vendor = Column(Boolean, default=False)
     # hashed_password and other auth fields would be added in a real app: todo
 
     items = relationship("Item", back_populates="vendor")
+
+
+async def get_user_db(session: AsyncSession = Depends(get_async_session)):
+    yield SQLAlchemyUserDatabase(session, User)
 
 
 class Category(Base):
@@ -31,7 +38,7 @@ class Item(Base):
     description = Column(String)
     latitude = Column(String)
     longitude = Column(String)
-    vendor_id = Column(Integer, ForeignKey("users.id"))
+    vendor_id = Column(UUID, ForeignKey("users.id"))
     category_id = Column(Integer, ForeignKey("categories.id"))
 
     vendor = relationship("User", back_populates="items")
