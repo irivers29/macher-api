@@ -5,6 +5,7 @@ from app.database import get_async_session
 from app import models, schemas
 from app.users import active_user
 from datetime import datetime
+from typing import List
 
 router = APIRouter(
     prefix="/v1/api",
@@ -12,7 +13,9 @@ router = APIRouter(
 )
 
 # Create availability for a product (for vendors)
-@router.post("/availability/", response_model=schemas.ProductAvailability)
+
+
+@router.post("/availability", response_model=schemas.ProductAvailabilityBase)
 async def create_availability(
     availability_data: schemas.ProductAvailabilityCreate,
     db: AsyncSession = Depends(get_async_session),
@@ -25,7 +28,7 @@ async def create_availability(
         )
 
     # Create the availability slot
-    new_availability = models.ProductAvailability(
+    new_availability = schemas.ProductAvailability(
         product_id=availability_data.product_id,
         start_time=availability_data.start_time,
         end_time=availability_data.end_time,
@@ -43,7 +46,8 @@ async def create_availability(
 async def get_product_availabilities(
     item_id: int, db: AsyncSession = Depends(get_async_session)
 ):
-    stmt = select(models.ProductAvailability).filter(models.ProductAvailability.product_id == item_id)
+    stmt = select(models.ProductAvailability).filter(
+        models.ProductAvailability.product_id == item_id)
     result = await db.execute(stmt)
     availabilities = result.scalars().all()
 
@@ -58,22 +62,27 @@ async def create_booking(
     current_user: models.User = Depends(active_user)
 ):
     # Ensure the availability exists
-    stmt = select(models.ProductAvailability).filter(models.ProductAvailability.id == booking_data.availability_id)
+    stmt = select(models.ProductAvailability).filter(
+        models.ProductAvailability.id == booking_data.availability_id)
     result = await db.execute(stmt)
     availability = result.scalar_one_or_none()
     if not availability:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Availability not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="Availability not found")
 
     # Ensure the user is not booking their own product
     if availability.vendor_id == current_user.id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot book your own product")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="You cannot book your own product")
 
     # Check if the slot is already booked
-    stmt = select(models.Booking).filter(models.Booking.availability_id == booking_data.availability_id)
+    stmt = select(models.Booking).filter(
+        models.Booking.availability_id == booking_data.availability_id)
     result = await db.execute(stmt)
     existing_booking = result.scalar_one_or_none()
     if existing_booking:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This slot is already booked")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="This slot is already booked")
 
     # Create the booking
     new_booking = models.Booking(

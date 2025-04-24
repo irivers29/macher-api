@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from app.schemas import UserCreate, UserRead, UserUpdate
 from app.users import auth_backend, fastapi_users
 from app.routers import bookings  # Import the bookings router
-from app.routers import rental_request  # Import the rental request router
 
 
 from app.database import async_session_maker, create_db_and_tables
