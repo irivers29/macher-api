@@ -1,19 +1,21 @@
-from sqlalchemy import Column, Integer, String, Float, BigInteger, ForeignKey, Boolean, UUID
+from sqlalchemy import Column, Integer, String, Float, BigInteger, ForeignKey, Boolean, UUID, DateTime, Text
 from sqlalchemy.orm import relationship
 from app.database import Base, get_async_session
 from fastapi_users.db import SQLAlchemyUserDatabase
 from fastapi import Depends
 from fastapi_users.db import SQLAlchemyBaseUserTableUUID
 from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import datetime
 
 
 class User(SQLAlchemyBaseUserTableUUID, Base):
     __tablename__ = "users"
     username = Column(String(20), unique=True, index=True)
     is_vendor = Column(Boolean, default=False)
-    # hashed_password and other auth fields would be added in a real app: todo
 
     items = relationship("Item", back_populates="vendor")
+    rental_requests_sent = relationship("RentalRequest", foreign_keys="[RentalRequest.requester_id]", back_populates="requester")
+    rental_requests_received = relationship("RentalRequest", foreign_keys="[RentalRequest.vendor_id]", back_populates="vendor")
 
 
 async def get_user_db(session: AsyncSession = Depends(get_async_session)):
@@ -34,7 +36,7 @@ class Item(Base):
     created_at = Column(BigInteger)
     name = Column(String, index=True)
     price = Column(Float)
-    review = Column(Float)  # create a table for reviews
+    review = Column(Float)
     description = Column(String)
     latitude = Column(String)
     longitude = Column(String)
@@ -43,8 +45,8 @@ class Item(Base):
 
     vendor = relationship("User", back_populates="items")
     category = relationship("Category", back_populates="items")
-    images = relationship(
-        "ItemImage", back_populates="item", cascade="all, delete")
+    images = relationship("ItemImage", back_populates="item", cascade="all, delete")
+    rental_requests = relationship("RentalRequest", back_populates="item", cascade="all, delete")
 
     @property
     def location(self):
@@ -58,3 +60,20 @@ class ItemImage(Base):
     url = Column(String)
 
     item = relationship("Item", back_populates="images")
+
+
+class RentalRequest(Base):
+    __tablename__ = "rental_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    item_id = Column(Integer, ForeignKey("items.id"))
+    requester_id = Column(UUID, ForeignKey("users.id"))
+    vendor_id = Column(UUID, ForeignKey("users.id"))
+    message = Column(Text, nullable=True)
+    start_time = Column(DateTime)
+    end_time = Column(DateTime)
+    status = Column(String, default="pending")  # pending, accepted, rejected
+
+    item = relationship("Item", back_populates="rental_requests")
+    requester = relationship("User", foreign_keys=[requester_id], back_populates="rental_requests_sent")
+    vendor = relationship("User", foreign_keys=[vendor_id], back_populates="rental_requests_received")

@@ -1,6 +1,8 @@
 from pydantic import BaseModel, ConfigDict
 from fastapi_users.schemas import BaseUser, BaseUserCreate, BaseUserUpdate
 from typing import List
+from datetime import datetime
+from typing import Optional
 
 
 
@@ -65,3 +67,23 @@ class ItemCreate(BaseModel):
     location: Location  # use the location of the user?
     category: CategoryBase
     images: List[str]
+
+class RentalRequestCreate(BaseModel):
+    item_id: int
+    vendor_id: str  # UUID
+    message: Optional[str] = None
+    start_time: datetime
+    end_time: datetime
+
+
+class RentalRequest(BaseModel):
+    id: int
+    item: Item
+    requester: UserRead
+    vendor: UserRead
+    message: Optional[str] = None
+    start_time: datetime
+    end_time: datetime
+    status: str
+
+    model_config = ConfigDict(from_attributes=True)
