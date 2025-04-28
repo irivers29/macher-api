@@ -1,12 +1,10 @@
 from fastapi import FastAPI
+from sqlalchemy import select, func
+
 from app.schemas import UserCreate, UserRead, UserUpdate
 from app.users import auth_backend, fastapi_users
-from app.routers import bookings  # Import the bookings router
-
-
 from app.database import async_session_maker, create_db_and_tables
-from app.routers import items
-from sqlalchemy import select, func
+from app.routers import items, bookings, rental_request
 from app import models
 
 from contextlib import asynccontextmanager
@@ -23,6 +21,7 @@ app = FastAPI(title="My Macher App", lifespan=lifespan)
 
 # Include routers
 app.include_router(bookings.router)  # Include the bookings router
+app.include_router(rental_request.router)
 
 # from app.routers import rental_requests
 # app.include_router(rental_requests.router)

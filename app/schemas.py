@@ -1,8 +1,12 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, validator
 from fastapi_users.schemas import BaseUser, BaseUserCreate, BaseUserUpdate
 from typing import List
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
+
+# TODO: change ids to uuid
+# TODO: rework inheritance structure of schemas
 
 
 class UserRead(BaseUser):
@@ -70,23 +74,29 @@ class ItemCreate(BaseModel):
 
 class RentalRequestCreate(BaseModel):
     item_id: int
-    vendor_id: str  # UUID
-    message: Optional[str] = None
+    message: Optional[str]
     start_time: datetime
     end_time: datetime
 
+    @validator("end_time")  # TODO: migrate to non-deprecated field_validator
+    def end_must_be_after_start(cls, v, values):
+        if "start_time" in values and v <= values["start_time"]:
+            raise ValueError("end_time must be after start_time")
+        return v
 
-class RentalRequest(BaseModel):
+
+class RentalRequestResponse(BaseModel):
     id: int
-    item: Item
-    requester: UserRead
-    vendor: UserRead
-    message: Optional[str] = None
+    item_id: int
+    requester_id: UUID
+    vendor_id: UUID
+    message: Optional[str]
     start_time: datetime
     end_time: datetime
     status: str
 
-    model_config = ConfigDict(from_attributes=True)
+    class Config:
+        orm_mode = True
 
 
 class ProductAvailabilityBase(BaseModel):
@@ -122,3 +132,14 @@ class Booking(BookingBase):
 
     class Config:
         orm_mode = True
+
+
+class ReviewCreate(BaseModel):
+    item_id: int
+    review_details: str
+    rating: int
+
+    @validator("rating")
+    def validate_rating(cls, v, values):
+        if v < 1 or v > 5:
+            raise ValueError("the rating needs to be between 1 and 5")

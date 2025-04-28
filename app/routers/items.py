@@ -142,7 +142,7 @@ async def create_item(
     return schemas.Item.model_validate(new_item)
 
 
-# should i add patch method?
+# TODO: should i add patch method?
 @router.put("/items/{item_id}", response_model=schemas.Item)
 async def update_item(
     item_id: int,

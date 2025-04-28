@@ -5,7 +5,6 @@ from fastapi_users.db import SQLAlchemyUserDatabase
 from fastapi import Depends
 from fastapi_users.db import SQLAlchemyBaseUserTableUUID
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime
 
 
 class User(SQLAlchemyBaseUserTableUUID, Base):
@@ -14,8 +13,11 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     is_vendor = Column(Boolean, default=False)
 
     items = relationship("Item", back_populates="vendor")
-    rental_requests_sent = relationship("RentalRequest", foreign_keys="[RentalRequest.requester_id]", back_populates="requester")
-    rental_requests_received = relationship("RentalRequest", foreign_keys="[RentalRequest.vendor_id]", back_populates="vendor")
+    rental_requests_sent = relationship(
+        "RentalRequest", foreign_keys="[RentalRequest.requester_id]", back_populates="requester")
+    rental_requests_received = relationship(
+        "RentalRequest", foreign_keys="[RentalRequest.vendor_id]", back_populates="vendor")
+    # reviews_made = relationship("RentalRequest", foreign_keys="[RentalRequest.requester_id]", back_populates="requester")
 
 
 async def get_user_db(session: AsyncSession = Depends(get_async_session)):
@@ -42,15 +44,33 @@ class Item(Base):
     longitude = Column(String)
     vendor_id = Column(UUID, ForeignKey("users.id"))
     category_id = Column(Integer, ForeignKey("categories.id"))
+    review
 
     vendor = relationship("User", back_populates="items")
     category = relationship("Category", back_populates="items")
-    images = relationship("ItemImage", back_populates="item", cascade="all, delete")
-    rental_requests = relationship("RentalRequest", back_populates="item", cascade="all, delete")
+    images = relationship(
+        "ItemImage", back_populates="item", cascade="all, delete")
+    rental_requests = relationship(
+        "RentalRequest", back_populates="item", cascade="all, delete")
+    reviews = relationship(
+        "Review", back_populates="item", cascade="all, delete")
 
     @property
     def location(self):
         return {"latitude": self.latitude, "longitude": self.longitude}
+
+
+class Review(Base):
+    __tablename__ = "item_reviews"
+    id = Column(Integer, primary_key=True, index=True)
+    review_details = Column(String)
+    item_id = Column(Integer, ForeignKey("items.id"))
+    # reviewer_id = Column(Integer, ForeignKey("reviewer.id"))
+    rating = Column(String)
+
+    # requester = relationship("User", foreign_keys=[
+    #                          reviewer_id], back_populates="rental_requests_sent")
+    item = relationship("Item", back_populates="reviews")
 
 
 class ItemImage(Base):
@@ -66,14 +86,16 @@ class RentalRequest(Base):
     __tablename__ = "rental_requests"
 
     id = Column(Integer, primary_key=True, index=True)
-    item_id = Column(Integer, ForeignKey("items.id"))
-    requester_id = Column(UUID, ForeignKey("users.id"))
-    vendor_id = Column(UUID, ForeignKey("users.id"))
+    item_id = Column(Integer, ForeignKey("items.id"), nullable=False)
+    requester_id = Column(UUID, ForeignKey("users.id"), nullable=False)
+    vendor_id = Column(UUID, ForeignKey("users.id"), nullable=False)
     message = Column(Text, nullable=True)
-    start_time = Column(DateTime)
-    end_time = Column(DateTime)
-    status = Column(String, default="pending")  # pending, accepted, rejected
+    start_time = Column(DateTime(timezone=True), nullable=False)
+    end_time = Column(DateTime(timezone=True), nullable=False)
+    status = Column(String, default="pending", nullable=False)
 
     item = relationship("Item", back_populates="rental_requests")
-    requester = relationship("User", foreign_keys=[requester_id], back_populates="rental_requests_sent")
-    vendor = relationship("User", foreign_keys=[vendor_id], back_populates="rental_requests_received")
+    requester = relationship("User", foreign_keys=[
+                             requester_id], back_populates="rental_requests_sent")
+    vendor = relationship("User", foreign_keys=[
+                          vendor_id],   back_populates="rental_requests_received")
