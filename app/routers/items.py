@@ -49,10 +49,6 @@ async def get_items(
     result = await db.execute(stmt)
     db_items = result.scalars().all()
 
-    # For debugging purposes
-    for item in db_items:
-        print(item)
-
     items_data = [schemas.Item.model_validate(
         item).model_dump() for item in db_items]
 

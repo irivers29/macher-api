@@ -17,7 +17,8 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
         "RentalRequest", foreign_keys="[RentalRequest.requester_id]", back_populates="requester")
     rental_requests_received = relationship(
         "RentalRequest", foreign_keys="[RentalRequest.vendor_id]", back_populates="vendor")
-    # reviews_made = relationship("RentalRequest", foreign_keys="[RentalRequest.requester_id]", back_populates="requester")
+    reviews_made = relationship(
+        "ItemReview", foreign_keys="[ItemReview.reviewer_id]", back_populates="reviewer")
 
 
 async def get_user_db(session: AsyncSession = Depends(get_async_session)):
@@ -44,7 +45,6 @@ class Item(Base):
     longitude = Column(String)
     vendor_id = Column(UUID, ForeignKey("users.id"))
     category_id = Column(Integer, ForeignKey("categories.id"))
-    review
 
     vendor = relationship("User", back_populates="items")
     category = relationship("Category", back_populates="items")
@@ -53,23 +53,23 @@ class Item(Base):
     rental_requests = relationship(
         "RentalRequest", back_populates="item", cascade="all, delete")
     reviews = relationship(
-        "Review", back_populates="item", cascade="all, delete")
+        "ItemReview", back_populates="item", cascade="all, delete")
 
     @property
     def location(self):
         return {"latitude": self.latitude, "longitude": self.longitude}
 
 
-class Review(Base):
+class ItemReview(Base):
     __tablename__ = "item_reviews"
     id = Column(Integer, primary_key=True, index=True)
     review_details = Column(String)
-    item_id = Column(Integer, ForeignKey("items.id"))
-    # reviewer_id = Column(Integer, ForeignKey("reviewer.id"))
+    item_id = Column(Integer, ForeignKey("items.id"), nullable=False)
+    reviewer_id = Column(UUID, ForeignKey("users.id"))
     rating = Column(String)
 
-    # requester = relationship("User", foreign_keys=[
-    #                          reviewer_id], back_populates="rental_requests_sent")
+    reviewer = relationship("User", foreign_keys=[
+        reviewer_id], back_populates="reviews_made")  # todo
     item = relationship("Item", back_populates="reviews")
 
 

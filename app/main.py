@@ -4,7 +4,7 @@ from sqlalchemy import select, func
 from app.schemas import UserCreate, UserRead, UserUpdate
 from app.users import auth_backend, fastapi_users
 from app.database import async_session_maker, create_db_and_tables
-from app.routers import items, bookings, rental_request
+from app.routers import items, bookings, rental_request, reviews
 from app import models
 
 from contextlib import asynccontextmanager
@@ -20,11 +20,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="My Macher App", lifespan=lifespan)
 
 # Include routers
-app.include_router(bookings.router)  # Include the bookings router
+# TODO: rework the bookings router because not working
+app.include_router(bookings.router)
 app.include_router(rental_request.router)
-
-# from app.routers import rental_requests
-# app.include_router(rental_requests.router)
+app.include_router(reviews.router)
 
 app.include_router(items.router)
 app.include_router(

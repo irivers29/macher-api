@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
-from sqlalchemy import UUID
 
 from app.database import get_async_session
 from app.models import RentalRequest as RentalRequestORM, Item
