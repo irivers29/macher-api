@@ -49,10 +49,6 @@ async def get_items(
     result = await db.execute(stmt)
     db_items = result.scalars().all()
 
-    # For debugging purposes
-    for item in db_items:
-        print(item)
-
     items_data = [schemas.Item.model_validate(
         item).model_dump() for item in db_items]
 
@@ -142,7 +138,7 @@ async def create_item(
     return schemas.Item.model_validate(new_item)
 
 
-# should i add patch method?
+# TODO: should i add patch method?
 @router.put("/items/{item_id}", response_model=schemas.Item)
 async def update_item(
     item_id: int,
